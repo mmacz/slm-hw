@@ -1,6 +1,7 @@
 #include "SoundLevelMeter.h"
 #include "AWeighting.h"
 #include "CWeighting.h"
+#include "FilterCoeffs.h"
 
 #include <cstdint>
 #include <cmath>
@@ -31,7 +32,7 @@ constexpr float GetDBLevelCalibrated(const float &value, const float &calibratio
 SoundLevelMeter::SoundLevelMeter(const SLMConfig &cfg)
     : mTimeWeighting(GetTimeWeightingTimeMs((TimeWeighting)cfg.tW))
     , mPeak(.0f)
-    , mCalibratedLevel(-1.f) {
+    , mCalibratedLevel(DEFAULT_INMP441_CALIBRATION_VALUE) {
   reset(cfg);
 }
 
@@ -71,7 +72,7 @@ MeterResults SoundLevelMeter::process(const float &sample) {
   return results;
 }
 
-const float SoundLevelMeter::calibrate(const float &sample) {
+float SoundLevelMeter::calibrate(const float &sample) {
   mCalibratedLevel = fabsf(sample);
   if (mCalibratedLevel <= 0.f) {
     mCalibratedLevel = 1.f;

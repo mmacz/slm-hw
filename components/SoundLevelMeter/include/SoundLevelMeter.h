@@ -31,7 +31,7 @@ public:
 
   void reset(const SLMConfig &cfg);
   MeterResults process(const float &sample);
-  const float calibrate(const float& sample);
+  float calibrate(const float& sample);
 
 private:
   std::unique_ptr<Filtering::FilterInterface> mFreqWeighting;
