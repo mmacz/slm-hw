@@ -20,13 +20,14 @@ struct MeterResults {
 };
 
 struct SLMConfig {
-  FrequencyWeighting fW;
-  TimeWeighting tW;
+  FrequencyWeighting fW = FrequencyWeighting::A;
+  TimeWeighting tW = TimeWeighting::FAST;
 };
 
 class SoundLevelMeter {
 public:
-  SoundLevelMeter(const SLMConfig &cfg);
+  SoundLevelMeter(const SLMConfig& cfg);
+  SoundLevelMeter(const SLMConfig& cfg, const float& calibrationFactor);
   ~SoundLevelMeter() = default;
 
   void reset(const SLMConfig &cfg);

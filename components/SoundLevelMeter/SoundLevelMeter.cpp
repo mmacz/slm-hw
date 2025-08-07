@@ -36,6 +36,13 @@ SoundLevelMeter::SoundLevelMeter(const SLMConfig &cfg)
   reset(cfg);
 }
 
+SoundLevelMeter::SoundLevelMeter(const SLMConfig& cfg, const float& calibrationFactor)
+    : mTimeWeighting(GetTimeWeightingTimeMs((TimeWeighting)cfg.tW))
+    , mPeak(.0f)
+    , mCalibratedLevel(calibrationFactor) {
+  reset(cfg);
+}
+
 void SoundLevelMeter::reset(const SLMConfig &cfg) {
   SLMConfig _c{cfg};
   switch (_c.fW) {
