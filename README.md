@@ -18,7 +18,7 @@ This project is a hobbyist sound level meter based on the ESP32 and the INMP441 
 ## Project Structure
 
 - `components/` – source code for individual blocks (filters, weightings, interfaces)
-- `main/` – main application
+- `src/` – main application
 - `platformio.ini` – PlatformIO configuration
 
 ## License
