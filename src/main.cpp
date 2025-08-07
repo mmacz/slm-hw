@@ -18,5 +18,14 @@ void app_main(void) {
   }
 
   meter.calibrate(calibData.calibrationFactor);
+
+  while (true) {
+    float sample = 0.0f; // Replace with actual audio sample acquisition logic
+    slm::MeterResults results = meter.process(sample);
+    (void)results;
+
+    // Use results.peak, results.leq, results.spl as needed
+    // For example, print or log the results
+  }
 }
 
