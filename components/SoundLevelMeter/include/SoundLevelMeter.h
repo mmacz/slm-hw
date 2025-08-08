@@ -5,13 +5,8 @@
 
 namespace slm {
 
-enum class FrequencyWeighting { A, C, Z };
-
-enum class TimeWeighting {
-  FAST,
-  SLOW,
-  IMPULSE,
-};
+enum class FrequencyWeighting : uint32_t { A, C, Z };
+enum class TimeWeighting : uint32_t { FAST, SLOW, IMPULSE, };
 
 struct MeterResults {
   float peak;

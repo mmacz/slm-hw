@@ -4,6 +4,6 @@
 idf_component_register(
   SRCS "main.cpp"
   INCLUDE_DIRS "."
-  REQUIRES MemCalib SoundLevelMeter
+  REQUIRES MemCalib SoundLevelMeter SSD1306
 )
 
