@@ -51,7 +51,7 @@ void app_main(void) {
   mem_calib_data_t calibData;
   int32_t status = mem_calib_read(&calibData);
 
-  if (status != MEM_CALIB_ERR_INVALID_DATA) {
+  if (status == MEM_CALIB_ERR_INVALID_DATA) {
     calibData.calibrationFactor = DEFAULT_INMP441_CALIBRATION_VALUE;
     calibData.frequencyWeighting = static_cast<uint32_t>(meterConfig.fW);
     calibData.timeWeighting = static_cast<uint32_t>(meterConfig.tW);
@@ -72,7 +72,6 @@ void app_main(void) {
   Display::SSD1306Config displayConfig(0x3C, 128, 32);
   Display::SSD1306 display(displayConfig, displayBus);
   display.initialize();
-
 
   uint8_t buffState = 0x00;
   while (true) {
