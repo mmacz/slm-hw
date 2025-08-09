@@ -9,8 +9,6 @@
 #include "SoundLevelMeter.h"
 #include "SSD1306.h"
 
-static std::array<uint8_t, 128 * 32 / 8> gBuffer;
-
 class I2CDisplayBus : public Display::IDisplayBus {
 public:
   I2CDisplayBus(i2c_port_t port, const i2c_config_t& config, uint32_t timeout = 1000)
@@ -73,17 +71,7 @@ void app_main(void) {
   Display::SSD1306 display(displayConfig, displayBus);
   display.initialize();
 
-  uint8_t buffState = 0x00;
   while (true) {
-    // Blink screen
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    if (buffState == 0x00) {
-      buffState = 0xFF;
-    } else {
-      buffState = 0x00;
-    }
-    gBuffer.fill(buffState);
-    display.write(gBuffer.data(), gBuffer.size(), false);
   }
 }
 

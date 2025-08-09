@@ -35,10 +35,25 @@ bool SSD1306::initialize()
   0xDB, 0x40, // VCOMH deselect level
   0xA4, // Entire display ON (resume)
   0xA6, // Normal display
-  0xAF  // Display ON
+  0xAE  // Display OFF
   };
+  if (!Command(init_sequence, sizeof(init_sequence))) {
+    return false;
+  }
 
-  return Command(init_sequence, sizeof(init_sequence));
+  uint8_t col_addr[] = {0x21, 0x00, static_cast<uint8_t>(mConfig.width - 1)};
+  if (!Command(col_addr, sizeof(col_addr))) return false;
+  uint8_t page_addr[] = {0x22, 0x00, static_cast<uint8_t>((mConfig.height / 8) - 1)};
+  if (!Command(page_addr, sizeof(page_addr))) return false;
+  uint8_t displayValue = 0x00;
+  for (size_t i = 0; i < (mConfig.width * mConfig.height / 8); ++i) {
+    if (!Data(&displayValue, 1)) {
+      return false;
+    }
+  }
+
+  uint8_t displayOn = {0xAF}; // Display ON
+  return Command(&displayOn, 1);
 }
 
 bool SSD1306::Command(const uint8_t* commands, size_t len)
