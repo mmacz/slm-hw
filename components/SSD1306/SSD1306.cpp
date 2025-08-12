@@ -8,17 +8,14 @@ SSD1306::SSD1306(const SSD1306Config& config, IDisplayBus& bus)
 
 bool SSD1306::initialize()
 {
-  if (mConfig.reset_func) {
-    if (!mConfig.reset_func(mConfig.addrOrCs)) {
+  if (mConfig.hwResetFn) {
+    if (!mConfig.hwResetFn(mConfig.addrOrCs)) {
       return false;
     }
   }
 
   uint8_t multiplex = static_cast<uint8_t>(mConfig.height - 1);
-  uint8_t com_pins = 0x02; // Sequential COM pin config, disable left/right remap
-  if (mConfig.height > 32) {
-    com_pins |= 0x10; // Enable alternative COM pin config for >32 rows
-  }
+uint8_t com_pins = (mConfig.height == 32) ? 0x02 : 0x12;
   uint8_t init_sequence[] = {
   0xAE, // Display OFF
   0xD5, 0x80, // Set display clock divide ratio/oscillator frequency
@@ -66,12 +63,12 @@ bool SSD1306::Data(const uint8_t* data, size_t len)
   return mBus.write(mConfig.addrOrCs, data, len, false);
 }
 
-bool SSD1306::write(const uint8_t* data, size_t len, bool isCommand)
+bool SSD1306::writeData(const uint8_t* data, size_t len)
 {
   uint8_t col_addr[] = {0x21, 0x00, static_cast<uint8_t>(mConfig.width - 1)};
   if (!Command(col_addr, sizeof(col_addr))) return false;
   uint8_t page_addr[] = {0x22, 0x00, static_cast<uint8_t>((mConfig.height / 8) - 1)};
   if (!Command(page_addr, sizeof(page_addr))) return false;
-  return mBus.write(mConfig.addrOrCs, data, len, isCommand);
+  return Data(data, len);
 }
 

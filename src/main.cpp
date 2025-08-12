@@ -1,4 +1,4 @@
-#include <array>
+#include <memory.h>
 
 #include "driver/i2c.h"
 #include "freertos/FreeRTOS.h"
@@ -9,12 +9,19 @@
 #include "SoundLevelMeter.h"
 #include "SSD1306.h"
 
+#define DISPLAY_I2C_ADDRESS 0x3C
+#define DISPLAY_WIDTH 128
+#define DISPLAY_HEIGHT 32
+#define DISPLAY_BUFFER_SIZE ((uint32_t)(DISPLAY_WIDTH * DISPLAY_HEIGHT / 8))
+
+uint8_t gDisplayBuffer[DISPLAY_BUFFER_SIZE];
+
 class I2CDisplayBus : public Display::IDisplayBus {
 public:
   I2CDisplayBus(i2c_port_t port, const i2c_config_t& config, uint32_t timeout = 1000)
       : mPort(port), mTimeout(timeout) {
     i2c_param_config(port, &config);
-    i2c_driver_install(port, config.mode, 0, 0, 0);
+    i2c_driver_install(port, config.mode, 0, 0, 1);
   }
 
   bool write(uint8_t address, const uint8_t* data, size_t len, bool isCommand) override {
@@ -28,7 +35,7 @@ public:
     i2c_master_write(cmd, data, len, true);
     i2c_master_stop(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(mPort, cmd, mTimeout / portTICK_PERIOD_MS);
+    esp_err_t ret = i2c_master_cmd_begin(mPort, cmd, pdMS_TO_TICKS(mTimeout));
     i2c_cmd_link_delete(cmd);
 
     return ret == ESP_OK;
@@ -67,9 +74,12 @@ void app_main(void) {
   i2cConfig.master.clk_speed = 400000;
   I2CDisplayBus displayBus(I2C_NUM_0, i2cConfig);
 
-  Display::SSD1306Config displayConfig(0x3C, 128, 32);
+  Display::SSD1306Config displayConfig(DISPLAY_I2C_ADDRESS, DISPLAY_WIDTH, DISPLAY_HEIGHT);
   Display::SSD1306 display(displayConfig, displayBus);
   display.initialize();
+
+  memset((void*)gDisplayBuffer, 0xFF, sizeof(gDisplayBuffer));
+  display.writeData((uint8_t*)gDisplayBuffer, sizeof(gDisplayBuffer));
 
   while (true) {
   }

@@ -16,10 +16,10 @@ namespace Display {
     uint8_t addrOrCs;
     uint16_t width;
     uint16_t height;
-    HWDisplayResetFn reset_func = nullptr;
+    HWDisplayResetFn hwResetFn = nullptr;
 
     SSD1306Config(uint8_t addrOrCs, uint16_t w, uint16_t h, HWDisplayResetFn hwReset = nullptr)
-        : addrOrCs(addrOrCs), width(w), height(h), reset_func(hwReset) {};
+        : addrOrCs(addrOrCs), width(w), height(h), hwResetFn(hwReset) {};
   };
 
   class SSD1306 {
@@ -30,7 +30,7 @@ namespace Display {
     uint16_t width() const { return mConfig.width; }
     uint16_t height() const { return mConfig.height; }
     uint8_t address() const { return mConfig.addrOrCs; }
-    bool write(const uint8_t* data, size_t len, bool isCommand = false);
+    bool writeData(const uint8_t* data, size_t len);
 
   private:
     bool Command(const uint8_t* commands, size_t len);
