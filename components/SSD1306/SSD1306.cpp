@@ -65,10 +65,8 @@ bool SSD1306::Data(const uint8_t* data, size_t len)
 
 bool SSD1306::writeData(const uint8_t* data, size_t len)
 {
-  uint8_t col_addr[] = {0x21, 0x00, static_cast<uint8_t>(mConfig.width - 1)};
-  if (!Command(col_addr, sizeof(col_addr))) return false;
-  uint8_t page_addr[] = {0x22, 0x00, static_cast<uint8_t>((mConfig.height / 8) - 1)};
-  if (!Command(page_addr, sizeof(page_addr))) return false;
+  uint8_t addr[] = {0x21, 0x00, static_cast<uint8_t>(mConfig.width - 1), 0x22, 0x00, static_cast<uint8_t>((mConfig.height / 8) - 1)};
+  if (!Command(addr, sizeof(addr))) return false;
   return Data(data, len);
 }
 

@@ -1,5 +1,4 @@
-#include <memory.h>
-
+#include "esp_log.h"
 #include "driver/i2c.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -8,13 +7,14 @@
 #include "MemCalib.h"
 #include "SoundLevelMeter.h"
 #include "SSD1306.h"
+#include "GFX.h"
 
 #define DISPLAY_I2C_ADDRESS 0x3C
 #define DISPLAY_WIDTH 128
 #define DISPLAY_HEIGHT 32
 #define DISPLAY_BUFFER_SIZE ((uint32_t)(DISPLAY_WIDTH * DISPLAY_HEIGHT / 8))
 
-uint8_t gDisplayBuffer[DISPLAY_BUFFER_SIZE];
+volatile uint8_t gDisplayBuffer[DISPLAY_BUFFER_SIZE] = {0};
 
 class I2CDisplayBus : public Display::IDisplayBus {
 public:
@@ -27,18 +27,29 @@ public:
   bool write(uint8_t address, const uint8_t* data, size_t len, bool isCommand) override {
     if (!data || len == 0) return false;
 
-    uint8_t control = isCommand ? 0x00 : 0x40;
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, &control, 1, true);
-    i2c_master_write(cmd, data, len, true);
-    i2c_master_stop(cmd);
+    const int max_attempts = 10;
+    int attempts = 0;
 
-    esp_err_t ret = i2c_master_cmd_begin(mPort, cmd, pdMS_TO_TICKS(mTimeout));
-    i2c_cmd_link_delete(cmd);
+    do {
+      uint8_t control = isCommand ? 0x00 : 0x40;
+      i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+      i2c_master_start(cmd);
+      i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+      i2c_master_write(cmd, &control, 1, true);
+      i2c_master_write(cmd, data, len, true);
+      i2c_master_stop(cmd);
 
-    return ret == ESP_OK;
+      esp_err_t ret = i2c_master_cmd_begin(mPort, cmd, pdMS_TO_TICKS(mTimeout));
+      i2c_cmd_link_delete(cmd);
+      if (ret == ESP_OK) {
+        return true;
+      }
+      else {
+        ESP_LOGW("I2CDisplayBus", "I2C write error %d, attempt %d/%d", ret, attempts + 1, max_attempts);
+      }
+    } while(++attempts < max_attempts);
+
+    return false;
   }
 
 private:
@@ -65,7 +76,7 @@ void app_main(void) {
   meter.reset(meterConfig);
   meter.calibrate(calibData.calibrationFactor);
 
-  i2c_config_t i2cConfig;
+  i2c_config_t i2cConfig = {};
   i2cConfig.mode = I2C_MODE_MASTER;
   i2cConfig.sda_io_num = GPIO_NUM_23;
   i2cConfig.scl_io_num = GPIO_NUM_22;
@@ -78,8 +89,9 @@ void app_main(void) {
   Display::SSD1306 display(displayConfig, displayBus);
   display.initialize();
 
-  memset((void*)gDisplayBuffer, 0xFF, sizeof(gDisplayBuffer));
-  display.writeData((uint8_t*)gDisplayBuffer, sizeof(gDisplayBuffer));
+  gfx::GFX gfx(DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_BUFFER_SIZE, (uint8_t*)gDisplayBuffer);
+  gfx.fillScreen(0xFF);
+  display.writeData(gfx.buffer(), gfx.bufferSize());
 
   while (true) {
   }
