@@ -3,7 +3,10 @@
 #include <array>
 #include <cstddef>
 
+#include <cstdint>
+
 constexpr float DEFAULT_INMP441_CALIBRATION_VALUE = 0.05010986f;
+constexpr int32_t SAMPLE_RATE = 24000;
 
 struct BiquadCoeffs {
     float a0, a1, a2;

@@ -1,11 +1,12 @@
 #include "TimeWeighting.h"
+#include "FilterCoeffs.h"
 #include <math.h>
 
 namespace Filtering {
 
 TimeWeighting::TimeWeighting(unsigned int mSec)
     : mState(0.f)
-    , mSampleRate(PROJECT_SAMPLE_RATE) {
+    , mSampleRate(SAMPLE_RATE) {
 
   mTau = static_cast<float>(mSec) / 1000.f;
   mAlpha = mTau / (1.f / mSampleRate + mTau);

@@ -14,7 +14,7 @@ def parse_cli():
         help="Output path for generated C++ header file"
     )
     args = parser.parse_args()
-    return args.fs, args.out_dir
+    return args.fs, args.out_file
 
 def A_Weighting(fs):
     print("Generating A-weighting filter coefficients...")
@@ -60,14 +60,16 @@ def dbfs_to_q15_float(dbfs: float) -> float:
     float_from_q15 = sample_q15 / 32768.0
     return float_from_q15
 
-def write_combined_header(path: str, filters: dict):
+def write_combined_header(path: str, fs: float, filters: dict):
     print(f"Writing filter coefficients to {path}...")
     with open(path, "w") as f:
         f.write("#pragma once\n\n")
         f.write("#include <array>\n")
         f.write("#include <cstddef>\n\n")
+        f.write("#include <cstdint>\n\n")
 
-        f.write(f"constexpr float DEFAULT_INMP441_CALIBRATION_VALUE = {dbfs_to_q15_float(-26):.7}f;\n\n")
+        f.write(f"constexpr float DEFAULT_INMP441_CALIBRATION_VALUE = {dbfs_to_q15_float(-26):.7}f;\n")
+        f.write(f"constexpr int32_t SAMPLE_RATE = {fs};\n\n")
 
         f.write("struct BiquadCoeffs {\n")
         f.write("    float a0, a1, a2;\n")
@@ -98,7 +100,7 @@ def main():
         "C": C_Weighting(fs),
     }
 
-    write_combined_header(output_path, filters)
+    write_combined_header(output_path, fs, filters)
 
 if __name__ == "__main__":
     main()
