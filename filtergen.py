@@ -10,7 +10,7 @@ def parse_cli():
         help="Sample rate used for calculation. (default: 44100)"
     )
     parser.add_argument(
-        "--out-dir", type=str, required=True,
+        "--out-file", type=str, required=True,
         help="Output path for generated C++ header file"
     )
     args = parser.parse_args()
