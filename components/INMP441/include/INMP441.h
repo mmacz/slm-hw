@@ -21,7 +21,7 @@ class I2SInterface {
 public:
   virtual ~I2SInterface() = default;
   virtual bool initialize(const INMP441Config& config) = 0;
-  virtual bool writeSamples() = 0;
+  virtual bool writeSample() = 0;
   virtual T readSample() = 0;
 };
 
@@ -41,8 +41,8 @@ public:
     return mI2SInterface.readSample();
   }
 
-  bool writeSamples() {
-    return mI2SInterface.writeSamples();
+  bool writeSample() {
+    return mI2SInterface.writeSample();
   }
 
 

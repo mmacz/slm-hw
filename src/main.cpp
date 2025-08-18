@@ -1,6 +1,7 @@
 #include "esp_log.h"
 #include "driver/i2c.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/timers.h"
 #include "freertos/task.h"
 #include "driver/i2s_std.h"
 
@@ -102,16 +103,22 @@ public:
             .ws = GPIO_NUM_19,
             .dout = I2S_GPIO_UNUSED,
             .din = GPIO_NUM_21,
+            .invert_flags = {
+                .mclk_inv = false,
+                .bclk_inv = false,
+                .ws_inv = false,
+            },
         }
     };
 
     bool ok = true;
-    ok &= i2s_new_channel(&chan_cfg, &mRxHandle, NULL) == ESP_OK;
+    ok &= i2s_new_channel(&chan_cfg, NULL, &mRxHandle) == ESP_OK;
     ok &= i2s_channel_init_std_mode(mRxHandle, &std_cfg) == ESP_OK;
+    ok &= i2s_channel_enable(mRxHandle) == ESP_OK;
     return ok;
   }
 
-  bool writeSamples() override{
+  bool writeSample() override{
     if (mCount >= BUFFER_SIZE) return false;
     uint8_t raw[3];
     size_t bytes_read = 0;
@@ -127,7 +134,7 @@ public:
   }
 
   float readSample() override {
-    if (mCount == 0) return 0.0f;
+    if (mCount == 0) return 2.0f;
     float value = mBuffer[mTail];
     mTail = (mTail + 1) % BUFFER_SIZE;
     mCount--;
@@ -140,6 +147,11 @@ private:
   i2s_chan_handle_t mRxHandle;
   std::atomic<size_t> mCount;
 };
+
+void vDisplayUpdateCallback(TimerHandle_t xTimer) {
+  volatile bool* flag = static_cast<volatile bool*>(pvTimerGetTimerID(xTimer));
+  if (flag) *flag = true;
+}
 
 extern "C"
 void app_main(void) {
@@ -184,10 +196,74 @@ void app_main(void) {
   display.initialize();
 
   gfx::GFX gfx(DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_BUFFER_SIZE, (uint8_t*)gDisplayBuffer);
-
   display.writeData(gfx.buffer(), gfx.bufferSize());
 
+  static volatile bool displayUpdateFlag = false;
+  TimerHandle_t displayTimer = xTimerCreate(
+    "DisplayUpdateTimer",
+    pdMS_TO_TICKS(1000),
+    pdTRUE,
+    (void*)&displayUpdateFlag,
+    vDisplayUpdateCallback
+  );
+
+  char pPeakTextBuffer[16];
+  char pRawTextBuffer[20];
+  char pLeqTextBuffer[16];
+  char pSPLTextBuffer[16];
+  memset(pPeakTextBuffer, 0, sizeof(pPeakTextBuffer));
+  memset(pRawTextBuffer, 0, sizeof(pRawTextBuffer));
+  memset(pLeqTextBuffer, 0, sizeof(pLeqTextBuffer));
+  memset(pSPLTextBuffer, 0, sizeof(pSPLTextBuffer));
+
+  if (xTimerStart(displayTimer, 0) != pdPASS) {
+    ESP_LOGE("SLM", "Failed to start display update timer");
+    while(1);
+  }
+
+  ESP_LOGI("SLM", "System initialized...");
+
   while (true) {
+    mic.writeSample();
+    float sample = mic.readSample();
+    if (sample > 1.f) continue;
+    slm::MeterResults results = meter.process(sample);
+    if (displayUpdateFlag) {
+      gfx.fillScreen(0x00);
+      gfx.drawRect(1, 1, DISPLAY_WIDTH - 2, DISPLAY_HEIGHT - 2, 0xFF);
+      // snprintf(pPeakTextBuffer, 16, "peak: %6.1f dB", results.peak);
+      snprintf(pRawTextBuffer, 20, "raw: %1.6f dB", sample);
+      snprintf(pLeqTextBuffer, 16, "leq: %6.1f dB", results.peak);
+      snprintf(pSPLTextBuffer, 16, "spl: %6.1f dB", results.spl);
+      // gfx.drawString(4, 3, pPeakTextBuffer, 0xFF, font5x7);
+      gfx.drawString(4, 3, pRawTextBuffer, 0xFF, font5x7);
+      gfx.drawString(4, 11, pLeqTextBuffer, 0xFF, font5x7);
+      gfx.drawString(4, 19, pSPLTextBuffer, 0xFF, font5x7);
+      switch (meterConfig.tW) {
+        case slm::TimeWeighting::FAST:
+          gfx.drawString(100, 11, "FAST", 0xFF, font5x7);
+          break;
+        case slm::TimeWeighting::SLOW:
+          gfx.drawString(100, 11, "SLOW", 0xFF, font5x7);
+          break;
+        case slm::TimeWeighting::IMPULSE:
+          gfx.drawString(100, 11, "IMPL", 0xFF, font5x7);
+          break;
+      }
+      switch (meterConfig.fW) {
+        case slm::FrequencyWeighting::A:
+          gfx.drawChar(110, 19, 'A', 0xFF, font5x7);
+          break;
+        case slm::FrequencyWeighting::C:
+          gfx.drawChar(110, 19, 'C', 0xFF, font5x7);
+          break;
+        case slm::FrequencyWeighting::Z:
+          gfx.drawChar(110, 19, 'Z', 0xFF, font5x7);
+          break;
+      }
+      display.writeData(gfx.buffer(), gfx.bufferSize());
+      displayUpdateFlag = false;
+    }
   }
 }
 
