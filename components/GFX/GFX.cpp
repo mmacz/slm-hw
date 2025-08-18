@@ -12,6 +12,58 @@ void GFX::fillScreen(uint8_t color) {
   }
 }
 
+bool GFX::setPixel(uint16_t x, uint16_t y, uint8_t color) {
+  if (!mBuffer || x >= mWidth || y >= mHeight) return false;
+  uint32_t index = x + (y >> 3) * mWidth;
+  uint8_t bit = 1 << (y & 7);
+  if (color)
+    mBuffer[index] |= bit;
+  else
+    mBuffer[index] &= ~bit;
+  return true;
+}
+
+bool GFX::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint8_t color) {
+  bool ok = true;
+  int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
+  int sx = (x0 < x1) ? 1 : -1;
+  int dy = (y1 > y0) ? (y1 - y0) : (y0 - y1);
+  int sy = (y0 < y1) ? 1 : -1;
+  int err = dx - dy;
+
+  while (true) {
+    ok &= setPixel(x0, y0, color);
+    if (x0 == x1 && y0 == y1) break;
+    int e2 = 2 * err;
+    if (e2 > -dy) {
+      err -= dy;
+      x0 += sx;
+    }
+    if (e2 < dx) {
+      err += dx;
+      y0 += sy;
+    }
+  }
+  return ok;
+}
+
+bool GFX::drawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t color) {
+  bool ok = true;
+  ok &= drawLine(x, y, x + w - 1, y, color);
+  ok &= drawLine(x, y + h - 1, x + w - 1, y + h - 1, color);
+  ok &= drawLine(x, y, x, y + h - 1, color);
+  ok &= drawLine(x + w - 1, y, x + w - 1, y + h - 1, color);
+  return ok;
+}
+
+bool GFX::fillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t color) {
+  bool ok = true;
+  for (uint16_t i = 0; i < h; ++i) {
+    ok &= drawLine(x, y + i, x + w - 1, y + i, color);
+  }
+  return ok;
+}
+
 uint16_t GFX::width() const {
   return mWidth;
 }

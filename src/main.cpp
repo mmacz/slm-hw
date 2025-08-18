@@ -90,7 +90,7 @@ void app_main(void) {
   display.initialize();
 
   gfx::GFX gfx(DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_BUFFER_SIZE, (uint8_t*)gDisplayBuffer);
-  gfx.fillScreen(0xFF);
+
   display.writeData(gfx.buffer(), gfx.bufferSize());
 
   while (true) {
