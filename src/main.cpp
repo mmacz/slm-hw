@@ -1,5 +1,6 @@
 #include "esp_log.h"
 #include "driver/i2c.h"
+#include "fonts.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -8,6 +9,7 @@
 #include "SoundLevelMeter.h"
 #include "SSD1306.h"
 #include "GFX.h"
+#include "Fonts.h"
 
 #define DISPLAY_I2C_ADDRESS 0x3C
 #define DISPLAY_WIDTH 128
@@ -90,6 +92,9 @@ void app_main(void) {
   display.initialize();
 
   gfx::GFX gfx(DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_BUFFER_SIZE, (uint8_t*)gDisplayBuffer);
+
+  gfx.drawRect(1, 1, DISPLAY_WIDTH - 2, DISPLAY_HEIGHT - 2, 0xFF);
+  gfx.drawString(3, 3, "SLM 12345678", 0xFF, font5x7);
 
   display.writeData(gfx.buffer(), gfx.bufferSize());
 
