@@ -69,13 +69,13 @@ MeterResults SoundLevelMeter::process(const float &sample) {
     mFreqWeighting->process(const_cast<float *>(&sample), &fWeighted, 1);
   }
   if (fWeighted > mPeak) {
-    mPeak = fWeighted;
+    mPeak = fabsf(fWeighted);
   }
   mTimeWeighting.process(&fWeighted, &tWeighted, 1);
 
-  results.leq = GetDBLevelCalibrated(tWeighted, mCalibratedLevel);
+  results.leq = GetDBLevelCalibrated(fabsf(tWeighted), mCalibratedLevel);
   results.peak = GetDBLevelCalibrated(mPeak, mCalibratedLevel);
-  results.spl = GetDBLevelCalibrated(sample, mCalibratedLevel);
+  results.spl = GetDBLevelCalibrated(fabsf(sample), mCalibratedLevel);
   return results;
 }
 
