@@ -15,6 +15,7 @@
 
 #include <atomic>
 #include <array>
+#include <cmath>
 
 #define DISPLAY_I2C_ADDRESS 0x3C
 #define DISPLAY_WIDTH 128
@@ -185,13 +186,11 @@ void app_main(void) {
   int32_t status = mem_calib_read(&calibData);
 
   if (status == MEM_CALIB_ERR_INVALID_DATA) {
-    calibData.calibrationFactor = DEFAULT_INMP441_CALIBRATION_VALUE;
     calibData.frequencyWeighting = static_cast<uint32_t>(meterConfig.fW);
     calibData.timeWeighting = static_cast<uint32_t>(meterConfig.tW);
     mem_calib_write(&calibData);
   }
   meter.reset(meterConfig);
-  meter.calibrate(calibData.calibrationFactor);
 
   i2c_config_t i2cConfig = {};
   i2cConfig.mode = I2C_MODE_MASTER;
@@ -243,12 +242,12 @@ void app_main(void) {
       if (displayUpdateFlag) {
         gfx.fillScreen(0x00);
         gfx.drawRect(1, 1, DISPLAY_WIDTH - 2, DISPLAY_HEIGHT - 2, 0xFF);
-        // snprintf(pPeakTextBuffer, 16, "peak: %6.1f dB", results.peak);
-        snprintf(pRawTextBuffer, 20, "raw: %1.6f", sample);
+        snprintf(pPeakTextBuffer, 16, "peak: %6.1f dB", results.peak);
+        // snprintf(pRawTextBuffer, 20, "raw: %1.6f", fabsf(sample));
         snprintf(pLeqTextBuffer, 16, "leq: %6.1f dB", results.leq);
         snprintf(pSPLTextBuffer, 16, "spl: %6.1f dB", results.spl);
-        // gfx.drawString(4, 3, pPeakTextBuffer, 0xFF, font5x7);
-        gfx.drawString(4, 3, pRawTextBuffer, 0xFF, font5x7);
+        gfx.drawString(4, 3, pPeakTextBuffer, 0xFF, font5x7);
+        // gfx.drawString(4, 3, pRawTextBuffer, 0xFF, font5x7);
         gfx.drawString(4, 11, pLeqTextBuffer, 0xFF, font5x7);
         gfx.drawString(4, 19, pSPLTextBuffer, 0xFF, font5x7);
         switch (meterConfig.tW) {

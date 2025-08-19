@@ -11,7 +11,6 @@ extern "C" {
 typedef struct mem_calib_data_s {
   uint32_t timeWeighting = 0;
   uint32_t frequencyWeighting = 0;
-  float calibrationFactor = DEFAULT_INMP441_CALIBRATION_VALUE;
 } mem_calib_data_t;
 
 enum mem_calib_status_e {

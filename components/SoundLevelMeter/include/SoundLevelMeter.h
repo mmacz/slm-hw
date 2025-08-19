@@ -26,7 +26,7 @@ public:
 
   void reset(const SLMConfig &cfg);
   MeterResults process(const float &sample);
-  float calibrate(const float& sample);
+  float calibrate(const float& sample, float alpha = .1f);
 
 private:
   std::unique_ptr<Filtering::FilterInterface> mFreqWeighting;
@@ -35,8 +35,9 @@ private:
   uint64_t mLeqSamples;
   float mPeakAbs;
   float mSampleRef;
-  float mCalibratedLevel;
+  float mRmsRef;
   float mCalGain;
+  float mCalibratedLevel;
 };
 
 } // namespace slm
