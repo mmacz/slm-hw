@@ -21,8 +21,9 @@ class I2SInterface {
 public:
   virtual ~I2SInterface() = default;
   virtual bool initialize(const INMP441Config& config) = 0;
-  virtual bool writeSample() = 0;
-  virtual T readSample() = 0;
+  virtual bool readSamples() = 0;
+  virtual size_t available() const = 0;
+  virtual T getSample() = 0;
 };
 
 template <typename T>
@@ -37,12 +38,16 @@ public:
     return mI2SInterface.initialize(mConfig);
   }
 
-  T readSample() {
-    return mI2SInterface.readSample();
+  T getSample() {
+    return mI2SInterface.getSample();
   }
 
-  bool writeSample() {
-    return mI2SInterface.writeSample();
+  bool readSamples() {
+    return mI2SInterface.readSamples();
+  }
+
+  size_t available() const {
+    return mI2SInterface.available();
   }
 
 

@@ -20,8 +20,7 @@ const FilterStages<2> CWeighting::get_stages() {
   return stages;
 }
 
-int CWeighting::process(float *inSamples, float *outSamples,
-                        unsigned int nSamples) {
+int CWeighting::process(float *inSamples, float *outSamples) {
   auto stages = get_stages();
   auto validStagesCount =
       std::count_if(stages.begin(), stages.end(),
@@ -30,13 +29,11 @@ int CWeighting::process(float *inSamples, float *outSamples,
     return -1;
   }
 
-  for (size_t n = 0; n < nSamples; ++n) {
-    float out = inSamples[n];
-    for (auto stage : stages) {
-      out = stage->process(out);
-    }
-    outSamples[n] = out;
+  float out = *inSamples;
+  for (auto stage : stages) {
+    out = stage->process(out);
   }
+  *outSamples = out;
 
   return 0;
 }

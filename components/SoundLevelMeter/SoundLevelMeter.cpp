@@ -8,6 +8,8 @@
 
 namespace slm {
 
+static constexpr float INV_SQRT2 = 0.70710678118f;
+
 uint32_t GetTimeWeightingTimeMs(TimeWeighting tW) {
   switch (tW) {
   case TimeWeighting::FAST:
@@ -21,25 +23,14 @@ uint32_t GetTimeWeightingTimeMs(TimeWeighting tW) {
   }
 };
 
-constexpr float GetDBLevelCalibrated(const float &value, const float &calibrationAmplitude) {
-  float amp = fabsf(value);
-  if (amp == 0.f || calibrationAmplitude <= 0.f) {
-    return -std::numeric_limits<float>::infinity();
-  }
-  return 20.f * log10f(amp / calibrationAmplitude) + 94.f;
-}
-
 SoundLevelMeter::SoundLevelMeter(const SLMConfig &cfg)
     : mTimeWeighting(GetTimeWeightingTimeMs((TimeWeighting)cfg.tW))
-    , mPeak(.0f)
-    , mCalibratedLevel(DEFAULT_INMP441_CALIBRATION_VALUE) {
-  reset(cfg);
-}
-
-SoundLevelMeter::SoundLevelMeter(const SLMConfig& cfg, const float& calibrationFactor)
-    : mTimeWeighting(GetTimeWeightingTimeMs((TimeWeighting)cfg.tW))
-    , mPeak(.0f)
-    , mCalibratedLevel(calibrationFactor) {
+    , mLeqEnergySum(.0)
+    , mLeqSamples(0)
+    , mPeakAbs(.0f)
+    , mSampleRef(DEFAULT_INMP441_CALIBRATION_VALUE)
+    , mCalibratedLevel(DEFAULT_INMP441_CALIBRATION_VALUE * (1.0f / std::sqrt(2.0f)))
+    , mCalGain(1.0f) {
   reset(cfg);
 }
 
@@ -62,29 +53,51 @@ void SoundLevelMeter::reset(const SLMConfig &cfg) {
 }
 
 MeterResults SoundLevelMeter::process(const float &sample) {
-  MeterResults results;
-  float fWeighted = sample;
-  float tWeighted = .0f;
+  MeterResults r;
+  float xw = sample;
   if (mFreqWeighting) {
-    mFreqWeighting->process(const_cast<float *>(&sample), &fWeighted, 1);
+    float tmp = sample;
+    mFreqWeighting->process(&tmp, &xw);
   }
-  if (fWeighted > mPeak) {
-    mPeak = fabsf(fWeighted);
-  }
-  mTimeWeighting.process(&fWeighted, &tWeighted, 1);
 
-  results.leq = GetDBLevelCalibrated(fabsf(tWeighted), mCalibratedLevel);
-  results.peak = GetDBLevelCalibrated(mPeak, mCalibratedLevel);
-  results.spl = GetDBLevelCalibrated(fabsf(sample), mCalibratedLevel);
-  return results;
+  const float a = fabsf(xw);
+  if (a > mPeakAbs) mPeakAbs = a;
+
+  float tRms = 0.0f;
+  mTimeWeighting.process(&xw, &tRms);
+
+  mLeqEnergySum += (double)(xw * xw);
+  mLeqSamples   += 1;
+
+  const float refA = mCalibratedLevel;
+  const float refE = refA * refA;
+
+  r.spl  = 10.0f * log10f( (tRms*tRms) / refE ) + 94.0f;
+  r.leq  = 10.0f * log10f( (float)(mLeqEnergySum/(double)mLeqSamples) / refE ) + 94.0f;
+  r.peak = 20.0f * log10f( mPeakAbs / refA ) + 94.0f;
+
+  return r;
 }
 
 float SoundLevelMeter::calibrate(const float &sample) {
-  mCalibratedLevel = fabsf(sample);
-  if (mCalibratedLevel <= 0.f) {
-    mCalibratedLevel = 1.f;
-  }
-  return GetDBLevelCalibrated(sample, mCalibratedLevel);
+  if (!(mSampleRef > 0.f) || !std::isfinite(mSampleRef))
+      mSampleRef = DEFAULT_INMP441_CALIBRATION_VALUE;
+
+  float a = std::fabs(sample);
+  if (!(a > 0.f) || !std::isfinite(a))
+      return -std::numeric_limits<float>::infinity();
+
+  float db_now = 20.0f * std::log10(a / mSampleRef) + 94.0f;
+
+  float targetGain = mSampleRef / a;
+
+  float alpha = .4f;
+  if (!(alpha > 0.f) || alpha > 1.f) alpha = 0.05f;
+  mCalGain = (1.0f - alpha) * mCalGain + alpha * targetGain;
+
+  mCalibratedLevel = mSampleRef * INV_SQRT2;
+
+  return db_now;
 }
 
 } // namespace slm

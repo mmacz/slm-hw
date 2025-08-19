@@ -14,8 +14,7 @@ public:
   AWeighting &operator=(const AWeighting &) = delete;
   AWeighting &operator=(AWeighting &&) = delete;
 
-  int process(float *inSamples, float *outSamples,
-              unsigned int nSamples) override;
+  int process(float *inSamples, float *outSamples) override;
   void clear_state() override;
 
 private:

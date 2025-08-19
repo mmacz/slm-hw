@@ -5,40 +5,28 @@
 namespace Filtering {
 
 TimeWeighting::TimeWeighting(unsigned int mSec)
-    : mState(0.f)
+    : mStateE(0.f)
     , mSampleRate(SAMPLE_RATE) {
 
   mTau = static_cast<float>(mSec) / 1000.f;
-  mAlpha = mTau / (1.f / mSampleRate + mTau);
+  mA = mTau / (1.f / mSampleRate + mTau);
 }
 
-int TimeWeighting::process(float *inSamples, float *outSamples,
-                           unsigned int nSamples) {
+int TimeWeighting::process(float *inSamples, float *outSamples) {
   // square signal
-  for (unsigned int n = 0; n < nSamples; ++n) {
-    inSamples[n] = powf(inSamples[n], 2);
-  }
+  const float energy = *inSamples * *inSamples;
+  mStateE = mA * mStateE + (1.0f - mA) * energy;
+  *outSamples = sqrtf(mStateE);
 
-  outSamples[0] = mState * mAlpha + (1.0f - mAlpha) * inSamples[0];
-
-  for (unsigned int n = 1; n < nSamples; ++n) {
-    outSamples[n] = outSamples[n - 1] * mAlpha + (1.0f - mAlpha) * inSamples[n];
-  }
-
-  mState = outSamples[nSamples - 1];
-
-  // square root
-  for (unsigned int n = 0; n < nSamples; ++n) {
-    outSamples[n] = sqrtf(outSamples[n]);
-  }
   return 0;
 }
 
 void TimeWeighting::set_msec(unsigned int mSec) {
-  mTau = static_cast<float>(mSec) / 1000.f;
-  mAlpha = mTau / (1.f / mSampleRate + mTau);
+  mTau = (float)mSec / 1000.f;
+  const float Ts = 1.0f / mSampleRate;
+  mA = expf(-Ts / (mTau > 0.f ? mTau : Ts));
 }
 
-void TimeWeighting::clear_state() { mState = 0; }
+void TimeWeighting::clear_state() { mStateE = 0; }
 
 } // namespace Filtering

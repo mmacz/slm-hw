@@ -22,7 +22,6 @@ struct SLMConfig {
 class SoundLevelMeter {
 public:
   SoundLevelMeter(const SLMConfig& cfg);
-  SoundLevelMeter(const SLMConfig& cfg, const float& calibrationFactor);
   ~SoundLevelMeter() = default;
 
   void reset(const SLMConfig &cfg);
@@ -32,8 +31,12 @@ public:
 private:
   std::unique_ptr<Filtering::FilterInterface> mFreqWeighting;
   Filtering::TimeWeighting mTimeWeighting;
-  float mPeak;
+  double mLeqEnergySum;
+  uint64_t mLeqSamples;
+  float mPeakAbs;
+  float mSampleRef;
   float mCalibratedLevel;
+  float mCalGain;
 };
 
 } // namespace slm

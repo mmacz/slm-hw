@@ -66,7 +66,7 @@ private:
 
 class I2SInterfaceESP32Float : public Microphone::I2SInterface<float> {
 public:
-  static constexpr size_t BUFFER_SIZE = 32;
+  static constexpr size_t BUFFER_SIZE = 64;
   using BufferType = std::array<float, BUFFER_SIZE>;
 
   I2SInterfaceESP32Float()
@@ -78,15 +78,15 @@ public:
     i2s_chan_config_t chan_cfg = {
         .id = I2S_NUM_0,
         .role = I2S_ROLE_MASTER,
-        .dma_desc_num = 4,
-        .dma_frame_num = 64,
+        .dma_desc_num = 8,
+        .dma_frame_num = 256,
         .auto_clear = true,
-        .auto_clear_before_cb = true,
+        .auto_clear_before_cb = false,
         .intr_priority = 1,
     };
 
     i2s_std_config_t std_cfg = {
-        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(24000),
+        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(config.sampleRate),
         .slot_cfg = {
             .data_bit_width = I2S_DATA_BIT_WIDTH_24BIT,
             .slot_bit_width = I2S_SLOT_BIT_WIDTH_32BIT,
@@ -94,7 +94,7 @@ public:
             .slot_mask = I2S_STD_SLOT_LEFT,
             .ws_width = 32,
             .ws_pol = false,
-            .bit_shift = false,
+            .bit_shift = true,
             .msb_right = false,
         },
         .gpio_cfg = {
@@ -118,27 +118,38 @@ public:
     return ok;
   }
 
-  bool writeSample() override{
+  bool readSamples() override{
     if (mCount >= BUFFER_SIZE) return false;
-    uint8_t raw[3];
-    size_t bytes_read = 0;
-    if (i2s_channel_read(mRxHandle, raw, 3, &bytes_read, 0) != ESP_OK || bytes_read != 3)
-      return false;
-    int32_t sample = (raw[0] << 8) | (raw[1] << 16) | (raw[2] << 24);
-    sample >>= 8;
-    float value = static_cast<float>(sample) / 8388608.0f;
-    mBuffer[mHead] = value;
-    mHead = (mHead + 1) % BUFFER_SIZE;
-    mCount++;
+    int32_t i32Samples[64] {0};
+    size_t bytesRead = 0;
+    while (bytesRead < sizeof(i32Samples)) {
+      esp_err_t err = i2s_channel_read(mRxHandle, (char*)&i32Samples + bytesRead, sizeof(i32Samples) - bytesRead, &bytesRead, 10);
+      if (err != ESP_OK && err != ESP_ERR_TIMEOUT) {
+        ESP_LOGE("I2SInterfaceESP32Float", "I2S read error: %s", esp_err_to_name(err));
+        return false;
+      }
+    }
+    size_t gotSamples = bytesRead / sizeof(int32_t);
+    for (size_t i = 0; i < gotSamples; ++i) {
+      int32_t i24Sample = (i32Samples[i] >> 8);
+      float value = static_cast<float>(i24Sample) / 8388608.0f;
+      mBuffer[mHead] = value;
+      mHead = (mHead + 1) % BUFFER_SIZE;
+      mCount++;
+    }
     return true;
   }
 
-  float readSample() override {
-    if (mCount == 0) return 2.0f;
+  float getSample() override {
+    if (mCount == 0) return 0.0f;
     float value = mBuffer[mTail];
     mTail = (mTail + 1) % BUFFER_SIZE;
     mCount--;
     return value;
+  }
+
+  size_t available() const override {
+    return mCount.load();
   }
 
 private:
@@ -158,7 +169,7 @@ void app_main(void) {
   ESP_LOGI("SLM", "Starting Sound Level Meter...");
 
   I2SInterfaceESP32Float i2sF;
-  Microphone::INMP441Config micCfg(24000, false, true);
+  Microphone::INMP441Config micCfg(SAMPLE_RATE, false, true);
   Microphone::INMP441<float> mic(micCfg, i2sF);
   if (!mic.initialize()) {
     ESP_LOGE("SLM", "Failed to initialize INMP441 microphone");
@@ -201,7 +212,7 @@ void app_main(void) {
   static volatile bool displayUpdateFlag = false;
   TimerHandle_t displayTimer = xTimerCreate(
     "DisplayUpdateTimer",
-    pdMS_TO_TICKS(1000),
+    pdMS_TO_TICKS(500),
     pdTRUE,
     (void*)&displayUpdateFlag,
     vDisplayUpdateCallback
@@ -224,45 +235,47 @@ void app_main(void) {
   ESP_LOGI("SLM", "System initialized...");
 
   while (true) {
-    mic.writeSample();
-    float sample = mic.readSample();
-    if (sample > 1.f) continue;
-    slm::MeterResults results = meter.process(sample);
-    if (displayUpdateFlag) {
-      gfx.fillScreen(0x00);
-      gfx.drawRect(1, 1, DISPLAY_WIDTH - 2, DISPLAY_HEIGHT - 2, 0xFF);
-      // snprintf(pPeakTextBuffer, 16, "peak: %6.1f dB", results.peak);
-      snprintf(pRawTextBuffer, 20, "raw: %1.6f dB", sample);
-      snprintf(pLeqTextBuffer, 16, "leq: %6.1f dB", results.peak);
-      snprintf(pSPLTextBuffer, 16, "spl: %6.1f dB", results.spl);
-      // gfx.drawString(4, 3, pPeakTextBuffer, 0xFF, font5x7);
-      gfx.drawString(4, 3, pRawTextBuffer, 0xFF, font5x7);
-      gfx.drawString(4, 11, pLeqTextBuffer, 0xFF, font5x7);
-      gfx.drawString(4, 19, pSPLTextBuffer, 0xFF, font5x7);
-      switch (meterConfig.tW) {
-        case slm::TimeWeighting::FAST:
-          gfx.drawString(100, 11, "FAST", 0xFF, font5x7);
-          break;
-        case slm::TimeWeighting::SLOW:
-          gfx.drawString(100, 11, "SLOW", 0xFF, font5x7);
-          break;
-        case slm::TimeWeighting::IMPULSE:
-          gfx.drawString(100, 11, "IMPL", 0xFF, font5x7);
-          break;
+    mic.readSamples();
+    size_t availableSamples = mic.available();
+    for (size_t i = 0; i < availableSamples; ++i) {
+      float sample = mic.getSample();
+      slm::MeterResults results = meter.process(sample);
+      if (displayUpdateFlag) {
+        gfx.fillScreen(0x00);
+        gfx.drawRect(1, 1, DISPLAY_WIDTH - 2, DISPLAY_HEIGHT - 2, 0xFF);
+        // snprintf(pPeakTextBuffer, 16, "peak: %6.1f dB", results.peak);
+        snprintf(pRawTextBuffer, 20, "raw: %1.6f", sample);
+        snprintf(pLeqTextBuffer, 16, "leq: %6.1f dB", results.leq);
+        snprintf(pSPLTextBuffer, 16, "spl: %6.1f dB", results.spl);
+        // gfx.drawString(4, 3, pPeakTextBuffer, 0xFF, font5x7);
+        gfx.drawString(4, 3, pRawTextBuffer, 0xFF, font5x7);
+        gfx.drawString(4, 11, pLeqTextBuffer, 0xFF, font5x7);
+        gfx.drawString(4, 19, pSPLTextBuffer, 0xFF, font5x7);
+        switch (meterConfig.tW) {
+          case slm::TimeWeighting::FAST:
+            gfx.drawString(100, 11, "FAST", 0xFF, font5x7);
+            break;
+          case slm::TimeWeighting::SLOW:
+            gfx.drawString(100, 11, "SLOW", 0xFF, font5x7);
+            break;
+          case slm::TimeWeighting::IMPULSE:
+            gfx.drawString(100, 11, "IMPL", 0xFF, font5x7);
+            break;
+        }
+        switch (meterConfig.fW) {
+          case slm::FrequencyWeighting::A:
+            gfx.drawChar(110, 19, 'A', 0xFF, font5x7);
+            break;
+          case slm::FrequencyWeighting::C:
+            gfx.drawChar(110, 19, 'C', 0xFF, font5x7);
+            break;
+          case slm::FrequencyWeighting::Z:
+            gfx.drawChar(110, 19, 'Z', 0xFF, font5x7);
+            break;
+        }
+        display.writeData(gfx.buffer(), gfx.bufferSize());
+        displayUpdateFlag = false;
       }
-      switch (meterConfig.fW) {
-        case slm::FrequencyWeighting::A:
-          gfx.drawChar(110, 19, 'A', 0xFF, font5x7);
-          break;
-        case slm::FrequencyWeighting::C:
-          gfx.drawChar(110, 19, 'C', 0xFF, font5x7);
-          break;
-        case slm::FrequencyWeighting::Z:
-          gfx.drawChar(110, 19, 'Z', 0xFF, font5x7);
-          break;
-      }
-      display.writeData(gfx.buffer(), gfx.bufferSize());
-      displayUpdateFlag = false;
     }
   }
 }
