@@ -19,7 +19,7 @@
 
 #define DISPLAY_I2C_ADDRESS 0x3C
 #define DISPLAY_WIDTH 128
-#define DISPLAY_HEIGHT 32
+#define DISPLAY_HEIGHT 64
 #define DISPLAY_BUFFER_SIZE ((uint32_t)(DISPLAY_WIDTH * DISPLAY_HEIGHT / 8))
 
 volatile uint8_t gDisplayBuffer[DISPLAY_BUFFER_SIZE] = {0};
@@ -194,8 +194,8 @@ void app_main(void) {
 
   i2c_config_t i2cConfig = {};
   i2cConfig.mode = I2C_MODE_MASTER;
-  i2cConfig.sda_io_num = GPIO_NUM_23;
-  i2cConfig.scl_io_num = GPIO_NUM_22;
+  i2cConfig.sda_io_num = GPIO_NUM_22;
+  i2cConfig.scl_io_num = GPIO_NUM_23;
   i2cConfig.sda_pullup_en = GPIO_PULLUP_ENABLE;
   i2cConfig.scl_pullup_en = GPIO_PULLUP_ENABLE;
   i2cConfig.master.clk_speed = 400000;
