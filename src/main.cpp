@@ -12,6 +12,7 @@
 #include "GFX.h"
 #include "Fonts.h"
 #include "INMP441.h"
+#include "soc/soc.h"
 
 #include <atomic>
 #include <array>
@@ -21,6 +22,9 @@
 #define DISPLAY_WIDTH 128
 #define DISPLAY_HEIGHT 64
 #define DISPLAY_BUFFER_SIZE ((uint32_t)(DISPLAY_WIDTH * DISPLAY_HEIGHT / 8))
+
+#define BUTTON_TIME GPIO_NUM_32
+#define BUTTON_WEIGHT GPIO_NUM_33
 
 volatile uint8_t gDisplayBuffer[DISPLAY_BUFFER_SIZE] = {0};
 
@@ -165,9 +169,60 @@ void vDisplayUpdateCallback(TimerHandle_t xTimer) {
   if (flag) *flag = true;
 }
 
+volatile uint8_t gButtonEvent = 0;
+volatile uint32_t gButtonIdx = 0;
+void IRAM_ATTR buttonsISRHandler(void *arg) {
+  gButtonEvent = 1;
+  gButtonIdx = (uint32_t)arg;
+}
+
+void initializeButtons() {
+  gpio_config_t ioConf = {};
+  ioConf.intr_type = GPIO_INTR_NEGEDGE;
+  ioConf.mode = GPIO_MODE_INPUT;
+  ioConf.pin_bit_mask = (1ULL << BUTTON_TIME) | (1ULL << BUTTON_WEIGHT);
+  ioConf.pull_up_en = GPIO_PULLUP_DISABLE;
+  ioConf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  gpio_config(&ioConf);
+
+  gpio_install_isr_service(0);
+
+  gpio_isr_handler_add(BUTTON_TIME, buttonsISRHandler, (void*)BUTTON_TIME);
+  gpio_isr_handler_add(BUTTON_WEIGHT, buttonsISRHandler, (void*)BUTTON_WEIGHT);
+}
+
+slm::SLMConfig handleButtons(slm::SLMConfig meterConfig, volatile uint32_t& buttonIdx) {
+  if (buttonIdx == BUTTON_TIME) {
+    buttonIdx = 0;
+    switch (meterConfig.tW) {
+      case slm::TimeWeighting::FAST:
+        meterConfig.tW = slm::TimeWeighting::SLOW; break;
+      case slm::TimeWeighting::SLOW:
+        meterConfig.tW = slm::TimeWeighting::IMPULSE; break;
+      case slm::TimeWeighting::IMPULSE:
+        meterConfig.tW = slm::TimeWeighting::FAST; break;
+    }
+  }
+  if (buttonIdx == BUTTON_WEIGHT) {
+    buttonIdx = 0;
+    switch (meterConfig.fW) {
+      case slm::FrequencyWeighting::A:
+        meterConfig.fW = slm::FrequencyWeighting::C; break;
+      case slm::FrequencyWeighting::C:
+        meterConfig.fW = slm::FrequencyWeighting::Z; break;
+      case slm::FrequencyWeighting::Z:
+        meterConfig.fW = slm::FrequencyWeighting::A; break;
+    }
+  }
+  return meterConfig;
+}
+
 extern "C"
 void app_main(void) {
   ESP_LOGI("SLM", "Starting Sound Level Meter...");
+
+  initializeButtons();
+  ESP_LOGI("SLM", "Buttons initialized...");
 
   I2SInterfaceESP32Float i2sF;
   Microphone::INMP441Config micCfg(SAMPLE_RATE, false, true);
@@ -239,6 +294,12 @@ void app_main(void) {
     for (size_t i = 0; i < availableSamples; ++i) {
       float sample = mic.getSample();
       slm::MeterResults results = meter.process(sample);
+      if (gButtonEvent) {
+        meterConfig = handleButtons(meterConfig, gButtonIdx);
+        meter.reset(meterConfig);
+        gButtonEvent = 0;
+        displayUpdateFlag = true;
+      }
       if (displayUpdateFlag) {
         gfx.fillScreen(0x00);
         gfx.drawRect(1, 1, DISPLAY_WIDTH - 2, DISPLAY_HEIGHT - 2, 0xFF);
