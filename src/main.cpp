@@ -211,7 +211,7 @@ void app_main(void) {
   static volatile bool displayUpdateFlag = false;
   TimerHandle_t displayTimer = xTimerCreate(
     "DisplayUpdateTimer",
-    pdMS_TO_TICKS(500),
+    pdMS_TO_TICKS(250),
     pdTRUE,
     (void*)&displayUpdateFlag,
     vDisplayUpdateCallback

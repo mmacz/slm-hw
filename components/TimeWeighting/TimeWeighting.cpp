@@ -7,9 +7,9 @@ namespace Filtering {
 TimeWeighting::TimeWeighting(unsigned int mSec)
     : mStateE(0.f)
     , mSampleRate(SAMPLE_RATE) {
-
   mTau = static_cast<float>(mSec) / 1000.f;
-  mA = mTau / (1.f / mSampleRate + mTau);
+  mdT = 1.0f / mSampleRate;
+  mA = expf(-mdT / (mTau > 0.f ? mTau : mdT));
 }
 
 int TimeWeighting::process(float *inSamples, float *outSamples) {
@@ -23,8 +23,7 @@ int TimeWeighting::process(float *inSamples, float *outSamples) {
 
 void TimeWeighting::set_msec(unsigned int mSec) {
   mTau = (float)mSec / 1000.f;
-  const float Ts = 1.0f / mSampleRate;
-  mA = expf(-Ts / (mTau > 0.f ? mTau : Ts));
+  mA = expf(-mdT / (mTau > 0.f ? mTau : mdT));
 }
 
 void TimeWeighting::clear_state() { mStateE = 0; }

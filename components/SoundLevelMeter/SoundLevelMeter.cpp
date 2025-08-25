@@ -28,17 +28,10 @@ SoundLevelMeter::SoundLevelMeter(const SLMConfig &cfg)
     , mLeqEnergySum(.0)
     , mLeqSamples(0)
     , mPeakAbs(.0f)
-    , mSampleRef(0.050118723f)
-    , mRmsRef(mSampleRef * INV_SQRT2)
-    , mCalGain(1.0f) {
+    , mSampleRef(DEFAULT_INMP441_CALIBRATION_VALUE)
+    , mRmsRef(mSampleRef)
+    , mCalGain(0.707f) {
   reset(cfg);
-  while(true) {
-    float dbCurrent = calibrate(mSampleRef, .1f);
-    if (fabsf(dbCurrent - 94.f) <= .1f) {
-      break;
-    }
-  }
-  mRmsRef = 0.028f;
   mCalibratedLevel = mRmsRef;
 }
 
@@ -62,11 +55,12 @@ void SoundLevelMeter::reset(const SLMConfig &cfg) {
 
 MeterResults SoundLevelMeter::process(const float &sample) {
   MeterResults r;
-  float xw = sample * mCalGain;
+  float xw = sample;
   if (mFreqWeighting) {
-    float tmp = sample;
+    float tmp = xw;
     mFreqWeighting->process(&tmp, &xw);
   }
+  xw *= mCalGain;
 
   const float a = fabsf(xw);
   if (a > mPeakAbs) mPeakAbs = a;
@@ -88,31 +82,35 @@ MeterResults SoundLevelMeter::process(const float &sample) {
 }
 
 
-float SoundLevelMeter::calibrate(const float &sample_now, float alpha) {
-    if (!(mSampleRef > 0.f) || !std::isfinite(mSampleRef))
-        mSampleRef = 0.050118723f;
+float SoundLevelMeter::calibrate(const float &sampleNow, float alpha) {
+  if (!(mSampleRef > 0.f) || !std::isfinite(mSampleRef)) {
+    mSampleRef = DEFAULT_INMP441_CALIBRATION_VALUE;
+  }
 
-    float a_raw = fabsf(sample_now);
-    if (!(a_raw > 0.f) || !std::isfinite(a_raw))
-        return -std::numeric_limits<float>::infinity();
+  float sampleAbs = fabsf(sampleNow);
+  if (!(sampleAbs > 0.f) || !std::isfinite(sampleAbs)) {
+    return -std::numeric_limits<float>::infinity();
+  }
 
-    float a_eff = a_raw * mCalGain;
+  float sampleEff = sampleAbs * mCalGain;
+  float dbNow = 20.0f * log10f(sampleEff / mSampleRef) + 94.0f;
+  float gainStep = mSampleRef / sampleEff;
 
-    float db_now = 20.0f * log10f(a_eff / mSampleRef) + 94.0f;
+  if (!(alpha > 0.f) || alpha > 1.f) {
+    alpha = 0.1f;
+  }
 
-    float g_step = mSampleRef / a_eff;
+  float gainNewAbs = mCalGain * gainStep;
+  if (gainNewAbs > 100.f) {
+    gainNewAbs = 100.f;
+  }
+  if (gainNewAbs < 0.01f) {
+    gainNewAbs = 0.01f;
+  }
 
-    if (!(alpha > 0.f) || alpha > 1.f) alpha = 0.1f;
+  mCalGain = (1.0f - alpha) * mCalGain + alpha * gainNewAbs;
 
-    float g_new_abs = mCalGain * g_step;
-    if (g_new_abs > 100.f) g_new_abs = 100.f;
-    if (g_new_abs < 0.01f) g_new_abs = 0.01f;
-
-    mCalGain = (1.0f - alpha) * mCalGain + alpha * g_new_abs;
-
-    mRmsRef = mSampleRef * 0.70710678f;
-
-    return db_now;
+  return dbNow;
 }
 
 } // namespace slm

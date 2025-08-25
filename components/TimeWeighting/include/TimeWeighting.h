@@ -16,5 +16,6 @@ private:
   float mTau;
   float mA;
   float mSampleRate;
+  float mdT;
 };
 } // namespace Filtering
