@@ -8,6 +8,21 @@
 
 namespace slm {
 
+struct DCBlock {
+  float R{0.0f};
+  float x1{0}, y1{0};
+
+  void set(float fs, float fc_hz) {
+    R = expf(-2.0f * M_PI * fc_hz / fs);
+    x1 = 0.0f; y1 = 0.0f;
+  }
+
+  inline float process(float x) {
+    float y = x - x1 + R * y1;
+    x1 = x; y1 = y;
+    return y;
+  }
+};
 static constexpr float INV_SQRT2 = 0.70710678118f;
 
 uint32_t GetTimeWeightingTimeMs(TimeWeighting tW) {
@@ -54,8 +69,11 @@ void SoundLevelMeter::reset(const SLMConfig &cfg) {
 }
 
 MeterResults SoundLevelMeter::process(const float &sample) {
-  MeterResults r;
-  float xw = sample;
+  MeterResults r {};
+  DCBlock dc;
+
+  dc.set(SAMPLE_RATE, 3.f);
+  float xw = dc.process(sample);
   if (mFreqWeighting) {
     float tmp = xw;
     mFreqWeighting->process(&tmp, &xw);

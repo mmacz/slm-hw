@@ -71,8 +71,8 @@ private:
 
 class I2SInterfaceESP32Float : public Microphone::I2SInterface<float> {
 public:
-  static constexpr size_t BUFFER_SIZE = 64;
-  using BufferType = std::array<float, BUFFER_SIZE>;
+  static constexpr size_t BUFFER_SIZE = 256;
+  using Buffer = std::array<int32_t, BUFFER_SIZE>;
 
   I2SInterfaceESP32Float()
     : mHead(0), mTail(0), mCount(0) {}
@@ -123,34 +123,70 @@ public:
     return ok;
   }
 
-  bool readSamples() override{
+  bool readSamples() override {
     if (mCount >= BUFFER_SIZE) return false;
-    int32_t i32Samples[64] {0};
-    size_t bytesRead = 0;
-    while (bytesRead < sizeof(i32Samples)) {
-      esp_err_t err = i2s_channel_read(mRxHandle, (char*)&i32Samples + bytesRead, sizeof(i32Samples) - bytesRead, &bytesRead, 10);
+
+    size_t freeTotal = BUFFER_SIZE - mCount.load();
+    if (freeTotal == 0) return true;
+
+    size_t firstSpan = std::min(freeTotal, BUFFER_SIZE - mHead);
+    size_t bytesFirst = firstSpan * sizeof(int32_t);
+
+    size_t gotBytes = 0;
+    if (bytesFirst) {
+      size_t chunk = 0;
+      esp_err_t err = i2s_channel_read(
+        mRxHandle,
+        reinterpret_cast<char*>(&mBuffer[mHead]),
+        bytesFirst,
+        &chunk,
+        10
+      );
       if (err != ESP_OK && err != ESP_ERR_TIMEOUT) {
         ESP_LOGE("I2SInterfaceESP32Float", "I2S read error: %s", esp_err_to_name(err));
         return false;
       }
+      gotBytes += chunk;
     }
-    size_t gotSamples = bytesRead / sizeof(int32_t);
-    for (size_t i = 0; i < gotSamples; ++i) {
-      int32_t i24Sample = (i32Samples[i] >> 8);
-      float value = static_cast<float>(i24Sample) / 8388608.0f;
-      mBuffer[mHead] = value;
-      mHead = (mHead + 1) % BUFFER_SIZE;
-      mCount++;
+
+    size_t gotSamples = gotBytes / sizeof(int32_t);
+    mHead = (mHead + gotSamples) % BUFFER_SIZE;
+    mCount += gotSamples;
+
+    size_t stillFree = BUFFER_SIZE - mCount.load();
+    if (stillFree > 0) {
+      size_t secondSpan = std::min(stillFree, BUFFER_SIZE - mHead);
+      size_t bytesSecond = secondSpan * sizeof(int32_t);
+      if (bytesSecond) {
+        size_t chunk2 = 0;
+        esp_err_t err2 = i2s_channel_read(
+          mRxHandle,
+          reinterpret_cast<char*>(&mBuffer[mHead]),
+          bytesSecond,
+          &chunk2,
+          10
+        );
+        if (err2 != ESP_OK && err2 != ESP_ERR_TIMEOUT) {
+          ESP_LOGE("I2SInterfaceESP32Float", "I2S read error: %s", esp_err_to_name(err2));
+          return false;
+        }
+        size_t got2 = chunk2 / sizeof(int32_t);
+        mHead = (mHead + got2) % BUFFER_SIZE;
+        mCount += got2;
+      }
     }
+
     return true;
   }
 
   float getSample() override {
     if (mCount == 0) return 0.0f;
-    float value = mBuffer[mTail];
+    int32_t raw = mBuffer[mTail];
     mTail = (mTail + 1) % BUFFER_SIZE;
     mCount--;
-    return value;
+
+    int32_t i24 = raw >> 8;
+    return static_cast<float>(i24) / 8388608.0f; // → [-1, 1)
   }
 
   size_t available() const override {
@@ -158,7 +194,7 @@ public:
   }
 
 private:
-  BufferType mBuffer;
+  Buffer mBuffer;
   size_t mHead, mTail;
   i2s_chan_handle_t mRxHandle;
   std::atomic<size_t> mCount;
@@ -304,11 +340,9 @@ void app_main(void) {
         gfx.fillScreen(0x00);
         gfx.drawRect(1, 1, DISPLAY_WIDTH - 2, DISPLAY_HEIGHT - 2, 0xFF);
         snprintf(pPeakTextBuffer, 16, "peak: %6.1f dB", results.peak);
-        // snprintf(pRawTextBuffer, 20, "raw: %1.6f", fabsf(sample));
         snprintf(pLeqTextBuffer, 16, "leq: %6.1f dB", results.leq);
         snprintf(pSPLTextBuffer, 16, "spl: %6.1f dB", results.spl);
         gfx.drawString(4, 3, pPeakTextBuffer, 0xFF, font5x7);
-        // gfx.drawString(4, 3, pRawTextBuffer, 0xFF, font5x7);
         gfx.drawString(4, 11, pLeqTextBuffer, 0xFF, font5x7);
         gfx.drawString(4, 19, pSPLTextBuffer, 0xFF, font5x7);
         switch (meterConfig.tW) {
