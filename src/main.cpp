@@ -302,7 +302,7 @@ void app_main(void) {
   static volatile bool displayUpdateFlag = false;
   TimerHandle_t displayTimer = xTimerCreate(
     "DisplayUpdateTimer",
-    pdMS_TO_TICKS(250),
+    pdMS_TO_TICKS(500),
     pdTRUE,
     (void*)&displayUpdateFlag,
     vDisplayUpdateCallback
@@ -315,7 +315,12 @@ void app_main(void) {
 
   ESP_LOGI("SLM", "System initialized...");
 
-  char pText[] = "TEST\0";
+  char pSPLLabel[16];
+  char pLeqLabel[32];
+  char pTimeLabel[8];
+  memset(pSPLLabel, 0, sizeof(pSPLLabel));
+  memset(pLeqLabel, 0, sizeof(pLeqLabel));
+  memset(pTimeLabel, 0, sizeof(pTimeLabel));
 
   while (true) {
     mic.readSamples();
@@ -333,8 +338,28 @@ void app_main(void) {
         gfx.fillScreen(0x00);
         gfx.drawRect(1, 1, DISPLAY_WIDTH - 2, DISPLAY_HEIGHT - 2, 0xFF);
 
-        gfx.drawString(10, 10, "TEST\0", 0xFF, &font8x16);
-        gfx.drawString(20, 20, pText, 0xFF, &font16x32);
+        char freqWLabel = [&meterConfig]() -> char {
+          switch (meterConfig.fW) {
+            case slm::FrequencyWeighting::A: return 'A';
+            case slm::FrequencyWeighting::C: return 'C';
+            case slm::FrequencyWeighting::Z: return 'Z';
+            default: return '\0';
+          }
+        }();
+
+        switch (meterConfig.tW) {
+          case slm::TimeWeighting::FAST: snprintf(pTimeLabel, sizeof(pTimeLabel), "FAST"); break;
+          case slm::TimeWeighting::SLOW: snprintf(pTimeLabel, sizeof(pTimeLabel), "SLOW"); break;
+          case slm::TimeWeighting::IMPULSE: snprintf(pTimeLabel, sizeof(pTimeLabel), "IMPL"); break;
+        }
+
+        snprintf(pSPLLabel, sizeof(pSPLLabel), "%-4.1f", results.spl);
+        snprintf(pLeqLabel, sizeof(pLeqLabel), "L%ceq: %-4.1f dB", freqWLabel, results.leq);
+
+        gfx.drawString(30, 10, pSPLLabel, 0xFF, &font16x32);
+        gfx.drawString(100, 20, "dB\0", 0xFF, &font8x16);
+        gfx.drawString(4, 50, pLeqLabel, 0xFF, &font5x7);
+        gfx.drawString(100, 50, pTimeLabel, 0xFF, &font5x7);
 
         display.writeData(gfx.buffer(), gfx.bufferSize());
         displayUpdateFlag = false;

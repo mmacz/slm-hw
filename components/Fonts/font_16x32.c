@@ -106,6 +106,7 @@ static const uint32_t font[] = {
 
 const font_desc_t font16x32 = {
   .monospace = 1,
+  .add_space = 0,
   .width = 16,
   .height = 32,
   .first_char = 0x20,

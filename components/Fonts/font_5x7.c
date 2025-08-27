@@ -261,6 +261,7 @@ static const uint32_t font[] = {
 
 const font_desc_t font5x7 = {
   .monospace = 1,
+  .add_space = 1,
   .width = 5,
   .height = 7,
   .first_char = 0x00,

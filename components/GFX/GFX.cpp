@@ -90,7 +90,7 @@ bool GFX::drawString(uint16_t x, uint16_t y, const char *str, uint8_t color, con
   const char* pStr = str;
   while (*pStr) {
     ok &= drawChar(xx, y, *pStr, color, pFont);
-    xx += pFont->width;
+    xx += pFont->width + pFont->add_space;
     ++pStr;
   }
   return ok;
