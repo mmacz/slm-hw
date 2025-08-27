@@ -308,21 +308,14 @@ void app_main(void) {
     vDisplayUpdateCallback
   );
 
-  char pPeakTextBuffer[16];
-  char pRawTextBuffer[20];
-  char pLeqTextBuffer[16];
-  char pSPLTextBuffer[16];
-  memset(pPeakTextBuffer, 0, sizeof(pPeakTextBuffer));
-  memset(pRawTextBuffer, 0, sizeof(pRawTextBuffer));
-  memset(pLeqTextBuffer, 0, sizeof(pLeqTextBuffer));
-  memset(pSPLTextBuffer, 0, sizeof(pSPLTextBuffer));
-
   if (xTimerStart(displayTimer, 0) != pdPASS) {
     ESP_LOGE("SLM", "Failed to start display update timer");
     while(1);
   }
 
   ESP_LOGI("SLM", "System initialized...");
+
+  char pText[] = "TEST\0";
 
   while (true) {
     mic.readSamples();
@@ -339,34 +332,9 @@ void app_main(void) {
       if (displayUpdateFlag) {
         gfx.fillScreen(0x00);
         gfx.drawRect(1, 1, DISPLAY_WIDTH - 2, DISPLAY_HEIGHT - 2, 0xFF);
-        snprintf(pPeakTextBuffer, 16, "peak: %6.1f dB", results.peak);
-        snprintf(pLeqTextBuffer, 16, "leq: %6.1f dB", results.leq);
-        snprintf(pSPLTextBuffer, 16, "spl: %6.1f dB", results.spl);
-        gfx.drawString(4, 3, pPeakTextBuffer, 0xFF, font5x7);
-        gfx.drawString(4, 11, pLeqTextBuffer, 0xFF, font5x7);
-        gfx.drawString(4, 19, pSPLTextBuffer, 0xFF, font5x7);
-        switch (meterConfig.tW) {
-          case slm::TimeWeighting::FAST:
-            gfx.drawString(100, 11, "FAST", 0xFF, font5x7);
-            break;
-          case slm::TimeWeighting::SLOW:
-            gfx.drawString(100, 11, "SLOW", 0xFF, font5x7);
-            break;
-          case slm::TimeWeighting::IMPULSE:
-            gfx.drawString(100, 11, "IMPL", 0xFF, font5x7);
-            break;
-        }
-        switch (meterConfig.fW) {
-          case slm::FrequencyWeighting::A:
-            gfx.drawChar(110, 19, 'A', 0xFF, font5x7);
-            break;
-          case slm::FrequencyWeighting::C:
-            gfx.drawChar(110, 19, 'C', 0xFF, font5x7);
-            break;
-          case slm::FrequencyWeighting::Z:
-            gfx.drawChar(110, 19, 'Z', 0xFF, font5x7);
-            break;
-        }
+
+        gfx.drawString(10, 10, pText, 0xFF, &font5x7);
+
         display.writeData(gfx.buffer(), gfx.bufferSize());
         displayUpdateFlag = false;
       }
