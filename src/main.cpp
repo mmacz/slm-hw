@@ -333,8 +333,8 @@ void app_main(void) {
         gfx.fillScreen(0x00);
         gfx.drawRect(1, 1, DISPLAY_WIDTH - 2, DISPLAY_HEIGHT - 2, 0xFF);
 
-        gfx.drawString(10, 10, "TEST\0", 0xFF, &font5x7);
-        gfx.drawString(20, 20, pText, 0xFF, &font16x16);
+        gfx.drawString(10, 10, "TEST\0", 0xFF, &font8x16);
+        gfx.drawString(20, 20, pText, 0xFF, &font16x32);
 
         display.writeData(gfx.buffer(), gfx.bufferSize());
         displayUpdateFlag = false;

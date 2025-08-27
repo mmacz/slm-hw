@@ -69,10 +69,10 @@ bool GFX::drawChar(uint16_t x, uint16_t y, char chr, uint8_t color, const font_d
     return false;
   }
   bool ok = true;
-  const uint16_t* pFontData = pFont->font;
+  const uint32_t* pFontData = pFont->font;
   uint16_t chrIdx = ((uint16_t)(chr - pFont->first_char)) * pFont->width;
   for (uint16_t col = 0; col < pFont->width; ++col) {
-    uint16_t bits = pFontData[chrIdx + col];
+    uint32_t bits = pFontData[chrIdx + col];
     for (uint16_t row = 0; row < pFont->height; ++row) {
       if (bits & (1 << row)) {
         ok &= setPixel(x + col, y + row, color);
@@ -90,7 +90,7 @@ bool GFX::drawString(uint16_t x, uint16_t y, const char *str, uint8_t color, con
   const char* pStr = str;
   while (*pStr) {
     ok &= drawChar(xx, y, *pStr, color, pFont);
-    xx += pFont->width + 1;
+    xx += pFont->width;
     ++pStr;
   }
   return ok;
