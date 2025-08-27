@@ -4,6 +4,6 @@
 idf_component_register(
   SRCS "main.cpp"
   INCLUDE_DIRS "."
-  REQUIRES MemCalib SoundLevelMeter SSD1306 GFX Fonts INMP441
+  REQUIRES MemCalib SoundLevelMeter SSD1306 GFX Fonts I2SMic
 )
 

@@ -11,7 +11,7 @@
 #include "SSD1306.h"
 #include "GFX.h"
 #include "Fonts.h"
-#include "INMP441.h"
+#include "I2SMic.h"
 #include "soc/soc.h"
 
 #include <atomic>
@@ -77,7 +77,7 @@ public:
   I2SInterfaceESP32Float()
     : mHead(0), mTail(0), mCount(0) {}
 
-  bool initialize(const Microphone::INMP441Config& config) override {
+  bool initialize(const Microphone::I2SMicConfig& config) override {
     mRxHandle = nullptr;
 
     i2s_chan_config_t chan_cfg = {
@@ -261,10 +261,10 @@ void app_main(void) {
   ESP_LOGI("SLM", "Buttons initialized...");
 
   I2SInterfaceESP32Float i2sF;
-  Microphone::INMP441Config micCfg(SAMPLE_RATE, false, true);
-  Microphone::INMP441<float> mic(micCfg, i2sF);
+  Microphone::I2SMicConfig micCfg(SAMPLE_RATE, false, true);
+  Microphone::I2SMic<float> mic(micCfg, i2sF);
   if (!mic.initialize()) {
-    ESP_LOGE("SLM", "Failed to initialize INMP441 microphone");
+    ESP_LOGE("SLM", "Failed to initialize I2S microphone");
     while(1);
   }
 
