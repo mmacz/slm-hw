@@ -65,16 +65,19 @@ bool GFX::fillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t color
 }
 
 bool GFX::drawChar(uint16_t x, uint16_t y, char chr, uint8_t color, const font_desc_t* pFont) {
+  if (chr < pFont->first_char || chr > pFont->last_char) {
+    return false;
+  }
   bool ok = true;
-  const uint8_t* pFontData = pFont->font;
-  uint16_t chrIdx = ((uint8_t)chr) * pFont->width;
-  for (uint8_t col = 0; col < pFont->width; ++col) {
-    uint8_t bits = pFontData[chrIdx + col];
-    for (uint8_t row = 0; row < pFont->height; ++row) {
+  const uint16_t* pFontData = pFont->font;
+  uint16_t chrIdx = ((uint16_t)(chr - pFont->first_char)) * pFont->width;
+  for (uint16_t col = 0; col < pFont->width; ++col) {
+    uint16_t bits = pFontData[chrIdx + col];
+    for (uint16_t row = 0; row < pFont->height; ++row) {
       if (bits & (1 << row)) {
-        ok &= setPixel(x + col, y + row, 1);
+        ok &= setPixel(x + col, y + row, color);
       } else {
-        ok &= setPixel(x + col, y + row, 0);
+        ok &= setPixel(x + col, y + row, !color);
       }
     }
   }
